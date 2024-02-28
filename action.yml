@@ -46,7 +46,7 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: crazy-max/ghaction-docker-meta@v5
+      uses: docker/metadata-action@v5
       with:
         images: |
           ${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/${{ github.repository }}/${{ inputs.docker-target }}
@@ -69,7 +69,7 @@ runs:
         password: "${{ steps.auth.outputs.access_token }}"
     - name: Build and push
       id: docker_build
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         push: ${{ inputs.push }}
         network: host
