@@ -27,7 +27,6 @@ inputs:
     description: "Git SHA"
     required: true
   push:
-    type: boolean
     description: "Push to registry"
     required: false
     default: false
@@ -37,15 +36,46 @@ inputs:
   file:
     description: "Path to the Dockerfile."
     required: false
+  kms-key:
+    description: "GCP KMS key path for signing"
+    required: false
+    default: "gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cryptoKeys/sbom-slsa-key-feaf3d5"
+  docker-network:
+    description: "Docker build network mode (e.g., host, bridge, none)"
+    required: false
+    default: "host"
+  enable-signing:
+    description: "Enable SBOM generation and image signing"
+    required: false
+    default: "false"
 outputs:
   digest:
     description: "Docker Digest"
     value: ${{ steps.docker_build.outputs.digest }}
+  image-tags:
+    description: "Generated image tags"
+    value: ${{ steps.docker_meta.outputs.tags }}
+  image:
+    description: "Full image reference with digest"
+    value: ${{ steps.image-var.outputs.image }}
 runs:
   using: "composite"
   steps:
+    - name: Validate inputs
+      run: |
+        if [[ ! "${{ inputs.sha }}" =~ ^[a-f0-9]{7,40}$ ]]; then
+          echo "::error::Invalid SHA format: ${{ inputs.sha }}"
+          exit 1
+        fi
+        if [[ -z "${{ inputs.docker-registry }}" ]]; then
+          echo "::error::docker-registry is required"
+          exit 1
+        fi
+      shell: bash
     - name: Install Cosign
       uses: sigstore/cosign-installer@v3.5.0
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Docker meta
       id: docker_meta
       uses: docker/metadata-action@v5
@@ -74,33 +104,39 @@ runs:
       uses: docker/build-push-action@v5
       with:
         push: ${{ inputs.push }}
-        network: host
+        network: ${{ inputs.docker-network }}
         tags: ${{ steps.docker_meta.outputs.tags }}
+        labels: ${{ steps.docker_meta.outputs.labels }}
         target: ${{ inputs.docker-target }}
         context: ${{ inputs.docker-context }}
         build-args: ${{ inputs.build-args }}
         file: ${{ inputs.file }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
     - name: Get Image Var
       id: image-var
+      if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
       run: |
         echo "image=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/${{ github.repository }}/${{ inputs.docker-target }}@${{ steps.docker_build.outputs.digest }}" >> "$GITHUB_OUTPUT"
       shell: bash
     - name: Generate SBOM
       id: sbom
-      uses: anchore/sbom-action@v0
+      if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
+      uses: anchore/sbom-action@v0.17.8
       with:
         image: ${{ steps.image-var.outputs.image }}
         artifact-name: sbom.spdx
         output-file: ./sbom.spdx
     - name: Sign image with a key
       id: sign
+      if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
       run: |
         images=""
         for tag in ${TAGS}; do
           images+="${tag}@${DIGEST} "
         done
-        cosign sign --yes --key gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cryptoKeys/sbom-slsa-key-feaf3d5 ${images} --tlog-upload=false
-        cosign attest --predicate sbom.spdx --key gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cryptoKeys/sbom-slsa-key-feaf3d5 ${images} --tlog-upload=false
+        cosign sign --yes --key ${{ inputs.kms-key }} ${images} --tlog-upload=false
+        cosign attest --predicate sbom.spdx --key ${{ inputs.kms-key }} ${images} --tlog-upload=false
       shell: bash
       env:
         TAGS: ${{ steps.docker_meta.outputs.tags }}
