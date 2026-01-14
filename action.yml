@@ -111,8 +111,8 @@ runs:
         context: ${{ inputs.docker-context }}
         build-args: ${{ inputs.build-args }}
         file: ${{ inputs.file }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ inputs.docker-target }}
+        cache-to: type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ inputs.docker-target }},mode=max
     - name: Get Image Var
       id: image-var
       if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
