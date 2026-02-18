@@ -48,6 +48,9 @@ inputs:
     description: "Enable SBOM generation and image signing"
     required: false
     default: "false"
+  tag:
+    description: "Optional additional tag for the image (e.g. v1.0.1)"
+    required: false
 outputs:
   digest:
     description: "Docker Digest"
@@ -87,6 +90,7 @@ runs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}} 
           type=raw,value=${{ inputs.branch }}-${{ inputs.sha }}-${{ inputs.ts }}
+          type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
     - id: "auth"
       name: "Authenticate to Google Cloud"
       uses: "google-github-actions/auth@v2"

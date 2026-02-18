@@ -35,6 +35,7 @@ Composite GitHub Action for building, signing, and publishing Docker images to G
 | `kms-key` | No | (see below) | GCP KMS key path for signing |
 | `docker-network` | No | `host` | Docker build network mode (`host`, `bridge`, `none`) |
 | `enable-signing` | No | `false` | Enable SBOM generation and image signing |
+| `tag` | No | - | Optional additional tag for the image (e.g. `v1.0.1`) |
 
 **Default KMS Key:**
 ```
@@ -127,6 +128,24 @@ With custom build arguments, Dockerfile path, and network mode:
       BUILD_ENV=production
 ```
 
+### Release Tag
+
+Add an extra release tag (e.g. from a git tag) to the image:
+
+```yaml
+- uses: your-org/rc-build-gh-actions@v1
+  with:
+    docker-registry: gcr.io
+    docker-base-image-path: my-project
+    docker-target: production
+    google-credentials: ${{ secrets.GCP_CREDENTIALS }}
+    branch: ${{ github.ref_name }}
+    ts: ${{ github.run_number }}
+    sha: ${{ github.sha }}
+    push: true
+    tag: ${{ github.ref_name }}  # e.g. v1.0.1
+```
+
 ### Using Custom KMS Key
 
 Override the default signing key:
@@ -154,6 +173,7 @@ The action generates multiple tags for each image:
 - `<branch>-<sha>-<timestamp>` - Custom tag with branch, SHA, and timestamp
 - `<version>` - Semantic version (if applicable)
 - `<major>.<minor>` - Semantic version without patch (if applicable)
+- `<tag>` - Custom release tag, if provided via the `tag` input (e.g. `v1.0.1`)
 
 ## Docker Layer Caching
 
