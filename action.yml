@@ -76,12 +76,12 @@ runs:
         fi
       shell: bash
     - name: Install Cosign
-      uses: sigstore/cosign-installer@v3.5.0
+      uses: sigstore/cosign-installer@v4.1.2
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4.1.0
     - name: Docker meta
       id: docker_meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6.1.0
       with:
         images: |
           ${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/${{ github.repository }}/${{ inputs.docker-target }}
@@ -93,19 +93,19 @@ runs:
           type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
     - id: "auth"
       name: "Authenticate to Google Cloud"
-      uses: "google-github-actions/auth@v2"
+      uses: "google-github-actions/auth@v3.0.0"
       with:
         credentials_json: "${{ inputs.google-credentials }}"
         token_format: "access_token"
     - name: Log in to the Container registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4.2.0
       with:
         registry: "${{ inputs.docker-registry }}"
         username: "oauth2accesstoken"
         password: "${{ steps.auth.outputs.access_token }}"
     - name: Build and push
       id: docker_build
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v7.2.0
       with:
         push: ${{ inputs.push }}
         network: ${{ inputs.docker-network }}
@@ -126,7 +126,7 @@ runs:
     - name: Generate SBOM
       id: sbom
       if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
-      uses: anchore/sbom-action@v0.17.8
+      uses: anchore/sbom-action@v0.24.0
       with:
         image: ${{ steps.image-var.outputs.image }}
         artifact-name: sbom.spdx
