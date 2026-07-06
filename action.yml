@@ -98,7 +98,7 @@ runs:
         credentials_json: "${{ inputs.google-credentials }}"
         token_format: "access_token"
     - name: Log in to the Container registry
-      uses: docker/login-action@v4.2.0
+      uses: docker/login-action@v4.4.0
       with:
         registry: "${{ inputs.docker-registry }}"
         username: "oauth2accesstoken"
