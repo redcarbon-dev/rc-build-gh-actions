@@ -177,11 +177,17 @@ The action generates multiple tags for each image:
 
 ## Docker Layer Caching
 
-The action uses GitHub Actions cache to speed up builds:
+The action uses a buildx **registry cache** hosted next to the images:
 
-- **Cache Type**: GitHub Actions cache (10GB limit per repository)
+- **Cache Type**: `type=registry`, stored at `<docker-registry>/<docker-base-image-path>/cache/<repository>/<docker-target>`
 - **Cache Mode**: `max` - Caches all intermediate layers
+- **Runner-independent**: the cache lives in Artifact Registry, so ephemeral runners get warm builds too
 - **Automatic**: No configuration needed, works out of the box
+
+The cache ref is scoped per calling repository so that repos sharing a target
+name (e.g. `production`) never overwrite each other's cache. Retention of the
+`cache/` path is handled by the Artifact Registry cleanup policies defined in
+`rc-infrastructure` (see ADR 0004 there).
 
 Subsequent builds of the same image will reuse unchanged layers, significantly reducing build times.
 
@@ -267,8 +273,10 @@ sha: ${{ github.sha }}  # Full SHA from GitHub context
 ### Cache Not Working
 
 1. Ensure `docker/setup-buildx-action` is running (it should be automatic)
-2. Check GitHub Actions cache limit (10GB per repository)
-3. Cache is automatically managed - no manual cleanup needed
+2. Check that the service account can push to the `cache/` path of the registry
+   (same permission as the image push)
+3. Cache retention is managed server-side by Artifact Registry cleanup policies
+   - no manual cleanup needed
 
 ## License
 

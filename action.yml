@@ -103,6 +103,16 @@ runs:
         registry: "${{ inputs.docker-registry }}"
         username: "oauth2accesstoken"
         password: "${{ steps.auth.outputs.access_token }}"
+    - name: Compute cache scope
+      id: cache_scope
+      # The buildx registry cache must be scoped per REPOSITORY, not only per
+      # docker-target: targets with the same name in different repos (e.g.
+      # `production` in rc-engine and rc-carbonpedia) would otherwise overwrite
+      # each other's cache on every push. Unlike the image path (where
+      # docker/metadata-action lowercases for us), this ref reaches buildx
+      # verbatim and Docker refs must be lowercase — hence the ${VAR,,}.
+      run: echo "repo=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      shell: bash
     - name: Build and push
       id: docker_build
       uses: docker/build-push-action@v7.2.0
@@ -115,8 +125,14 @@ runs:
         context: ${{ inputs.docker-context }}
         build-args: ${{ inputs.build-args }}
         file: ${{ inputs.file }}
-        cache-from: type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ inputs.docker-target }}
-        cache-to: type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ inputs.docker-target }},mode=max
+        # The second cache-from is the legacy shared (pre-per-repo) ref, kept as
+        # a read-only fallback so the first build after this change is not cold;
+        # nothing writes it anymore, so Artifact Registry retention ages it out.
+        # Drop it in a future bump.
+        cache-from: |
+          type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ steps.cache_scope.outputs.repo }}/${{ inputs.docker-target }}
+          type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ inputs.docker-target }}
+        cache-to: type=registry,ref=${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/cache/${{ steps.cache_scope.outputs.repo }}/${{ inputs.docker-target }},mode=max
     - name: Get Image Var
       id: image-var
       if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
