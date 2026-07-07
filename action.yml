@@ -115,7 +115,7 @@ runs:
       shell: bash
     - name: Build and push
       id: docker_build
-      uses: docker/build-push-action@v7.2.0
+      uses: docker/build-push-action@v7.3.0
       with:
         push: ${{ inputs.push }}
         network: ${{ inputs.docker-network }}
