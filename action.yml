@@ -33,6 +33,10 @@ inputs:
   build-args:
     description: "List of build-time variables"
     required: false
+  go-cache-bucket:
+    description: "GCS bucket for the shared Go build cache (GOCACHEPROG). When set, its name is passed as the GO_CACHE_BUCKET build-arg and a short-lived access token is passed as the `gcs_token` build SECRET so the in-image `go build` can use the remote cache. Empty (default) disables it."
+    required: false
+    default: ""
   file:
     description: "Path to the Dockerfile."
     required: false
@@ -123,7 +127,16 @@ runs:
         labels: ${{ steps.docker_meta.outputs.labels }}
         target: ${{ inputs.docker-target }}
         context: ${{ inputs.docker-context }}
-        build-args: ${{ inputs.build-args }}
+        build-args: |
+          ${{ inputs.build-args }}
+          GO_CACHE_BUCKET=${{ inputs.go-cache-bucket }}
+        # Short-lived OAuth access token for the in-image GOCACHEPROG remote
+        # build cache (rc-ws). Passed as a build SECRET — mounted on tmpfs only
+        # for the RUN that requests it and excluded from image layers, never a
+        # build-arg. GitHub masks this value in logs. Images that don't mount
+        # `gcs_token` simply ignore it.
+        secrets: |
+          gcs_token=${{ steps.auth.outputs.access_token }}
         file: ${{ inputs.file }}
         # The second cache-from is the legacy shared (pre-per-repo) ref, kept as
         # a read-only fallback so the first build after this change is not cold;
