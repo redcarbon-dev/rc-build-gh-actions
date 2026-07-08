@@ -85,7 +85,7 @@ runs:
       uses: docker/setup-buildx-action@v4.1.0
     - name: Docker meta
       id: docker_meta
-      uses: docker/metadata-action@v6.1.0
+      uses: docker/metadata-action@v6.2.0
       with:
         images: |
           ${{ inputs.docker-registry }}/${{ inputs.docker-base-image-path }}/${{ github.repository }}/${{ inputs.docker-target }}
