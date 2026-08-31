@@ -155,7 +155,7 @@ runs:
     - name: Generate SBOM
       id: sbom
       if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
-      uses: anchore/sbom-action@v0.24.0
+      uses: anchore/sbom-action@v0.24.2
       with:
         image: ${{ steps.image-var.outputs.image }}
         artifact-name: sbom.spdx
