@@ -80,6 +80,11 @@ runs:
         fi
       shell: bash
     - name: Install Cosign
+      # The cosign binary is used by exactly one step, "Sign image with a key",
+      # which is gated on this same condition. Sigstore signing was retired from
+      # the platform (OPE-1461), so callers overwhelmingly pass
+      # enable-signing: false and were paying for this install on every build.
+      if: ${{ inputs.push == 'true' && inputs.enable-signing == 'true' }}
       uses: sigstore/cosign-installer@v4.1.2
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4.2.0
