@@ -4,24 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Composite GitHub Action for building, signing, and publishing Docker images to Google Cloud Container Registry with supply chain security features (SBOM generation and Cosign signing).
+Composite GitHub Action for building and publishing Docker images to Google Cloud Container Registry.
+
+Signing and SBOM generation were removed in v0.19 (OPE-1464): Sigstore was retired from the platform, and no caller in the organisation had them enabled.
 
 ## Architecture
 
 Single-file action (`action.yml`) that chains together:
-1. Cosign installation for image signing
 2. Docker metadata generation for tagging
 3. Google Cloud authentication
 4. Docker registry login
 5. Docker build and push
-6. SBOM generation (Anchore, SPDX format)
-7. Image signing and attestation (Cosign with GCP KMS)
 
 ## Development
 
 - No build process - edit `action.yml` directly
 - No tests exist in this repository
-- Image signing uses Google Cloud KMS key at `gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cryptoKeys/sbom-slsa-key-feaf3d5`
 
 ## Action Inputs
 

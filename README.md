@@ -1,21 +1,23 @@
 # RC Docker Build Action
 
+> **Signing and SBOM generation were removed in v0.19** (OPE-1464). Sigstore was
+> retired from the platform in OPE-1461, and a scan of all 86 repositories in the
+> organisation found 49 workflows calling this action and **none** passing
+> `enable-signing: true` — the path was dead code that still paid a cosign install
+> on every build. Restore it from git history if it is ever wanted again.
+
 Composite GitHub Action for building, signing, and publishing Docker images to Google Cloud Container Registry with comprehensive supply chain security features.
 
 ## Features
 
 - **Docker Build & Push** - Build and optionally push Docker images to Google Cloud Container Registry
 - **Layer Caching** - GitHub Actions cache integration for faster builds
-- **SBOM Generation** - Software Bill of Materials using Anchore (SPDX format)
-- **Image Signing** - Cosign signing with Google Cloud KMS
-- **Attestation** - SBOM attestation for supply chain verification
 - **Flexible Configuration** - Configurable network modes, build args, and signing options
 
 ## Prerequisites
 
 - Google Cloud project with Container Registry enabled
 - Service account with Container Registry permissions
-- (Optional) Google Cloud KMS key for image signing
 
 ## Inputs
 
@@ -32,15 +34,9 @@ Composite GitHub Action for building, signing, and publishing Docker images to G
 | `push` | No | `false` | Whether to push image to registry |
 | `build-args` | No | - | Docker build arguments (multiline) |
 | `file` | No | - | Path to Dockerfile |
-| `kms-key` | No | (see below) | GCP KMS key path for signing |
 | `docker-network` | No | `host` | Docker build network mode (`host`, `bridge`, `none`) |
-| `enable-signing` | No | `false` | Enable SBOM generation and image signing |
 | `tag` | No | - | Optional additional tag for the image (e.g. `v1.0.1`) |
 
-**Default KMS Key:**
-```
-gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cryptoKeys/sbom-slsa-key-feaf3d5
-```
 
 ## Outputs
 
@@ -48,7 +44,6 @@ gcpkms://projects/redcarbon-bb8b2/locations/global/keyRings/sbom-slsa-keyring/cr
 |--------|-------------|
 | `digest` | Docker image digest (SHA256) |
 | `image-tags` | Generated image tags (newline-separated) |
-| `image` | Full image reference with digest |
 
 ## Usage
 
@@ -86,24 +81,6 @@ Build and push to Google Container Registry:
     push: true
 ```
 
-### Build, Push, and Sign (Full Supply Chain Security)
-
-Build, push, generate SBOM, and sign the image:
-
-```yaml
-- uses: your-org/rc-build-gh-actions@v1
-  with:
-    docker-registry: gcr.io
-    docker-base-image-path: my-project
-    docker-target: production
-    google-credentials: ${{ secrets.GCP_CREDENTIALS }}
-    branch: ${{ github.ref_name }}
-    ts: ${{ github.run_number }}
-    sha: ${{ github.sha }}
-    push: true
-    enable-signing: true
-```
-
 ### Advanced Configuration
 
 With custom build arguments, Dockerfile path, and network mode:
@@ -122,7 +99,6 @@ With custom build arguments, Dockerfile path, and network mode:
     ts: ${{ github.run_number }}
     sha: ${{ github.sha }}
     push: true
-    enable-signing: true
     build-args: |
       NODE_VERSION=20
       BUILD_ENV=production
@@ -144,25 +120,6 @@ Add an extra release tag (e.g. from a git tag) to the image:
     sha: ${{ github.sha }}
     push: true
     tag: ${{ github.ref_name }}  # e.g. v1.0.1
-```
-
-### Using Custom KMS Key
-
-Override the default signing key:
-
-```yaml
-- uses: your-org/rc-build-gh-actions@v1
-  with:
-    docker-registry: gcr.io
-    docker-base-image-path: my-project
-    docker-target: production
-    google-credentials: ${{ secrets.GCP_CREDENTIALS }}
-    branch: ${{ github.ref_name }}
-    ts: ${{ github.run_number }}
-    sha: ${{ github.sha }}
-    push: true
-    enable-signing: true
-    kms-key: gcpkms://projects/YOUR_PROJECT/locations/global/keyRings/YOUR_KEYRING/cryptoKeys/YOUR_KEY
 ```
 
 ## Image Tagging Strategy
@@ -190,27 +147,6 @@ name (e.g. `production`) never overwrite each other's cache. Retention of the
 `rc-infrastructure` (see ADR 0004 there).
 
 Subsequent builds of the same image will reuse unchanged layers, significantly reducing build times.
-
-## Supply Chain Security
-
-When `enable-signing: true`:
-
-1. **SBOM Generation**: Creates a Software Bill of Materials in SPDX format
-2. **Image Signing**: Signs the image using Cosign with GCP KMS
-3. **Attestation**: Attaches SBOM attestation to the signed image
-4. **No Public Log**: Uses `--tlog-upload=false` for private signatures
-
-### Verifying Signed Images
-
-```bash
-# Verify signature
-cosign verify --key gcpkms://projects/.../YOUR_KEY \
-  gcr.io/my-project/my-repo/my-target@sha256:...
-
-# Verify attestation
-cosign verify-attestation --key gcpkms://projects/.../YOUR_KEY \
-  gcr.io/my-project/my-repo/my-target@sha256:...
-```
 
 ## Complete Workflow Example
 
@@ -245,7 +181,6 @@ jobs:
           ts: ${{ github.run_number }}
           sha: ${{ github.sha }}
           push: ${{ github.event_name != 'pull_request' }}
-          enable-signing: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Output Image Details
         run: |
@@ -263,12 +198,6 @@ Ensure the `sha` input is a valid git commit SHA (7-40 hexadecimal characters):
 ```yaml
 sha: ${{ github.sha }}  # Full SHA from GitHub context
 ```
-
-### Signing Fails
-
-1. Verify your service account has KMS permissions (`cloudkms.cryptoKeyVersions.useToSign`)
-2. Ensure the KMS key exists and is accessible
-3. Check that `push: true` and `enable-signing: true` are both set
 
 ### Cache Not Working
 
